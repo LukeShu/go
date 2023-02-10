@@ -175,9 +175,6 @@ func Warn(format string, args ...interface{}) {
 // to additional output by setting a particular flag.
 func WarnfAt(pos src.XPos, format string, args ...interface{}) {
 	addErrorMsg(pos, format, args...)
-	if Flag.LowerM != 0 {
-		FlushErrors()
-	}
 }
 
 // Fatalf reports a fatal error - an internal problem - at the current line and exits.

@@ -169,9 +169,8 @@ func Main(archInit func(*ssagen.ArchInfo)) {
 		ssagen.Arch.SoftFloat = true
 	}
 
-	if base.Flag.JSON != "" { // parse version,destination from json logging optimization.
-		logopt.LogJsonOption(base.Flag.JSON)
-	}
+	logopt.LogTextOption(base.Flag.LowerM)
+	logopt.LogJsonOption(base.Flag.JSON)
 
 	ir.EscFmt = escape.Fmt
 	ir.IsIntrinsicCall = ssagen.IsIntrinsicCall

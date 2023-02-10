@@ -141,7 +141,7 @@ func (k hole) note(where ir.Node, why string) hole {
 	if where == nil || why == "" {
 		base.Fatalf("note: missing where/why")
 	}
-	if base.Flag.LowerM >= 2 || logopt.Enabled() {
+	if logopt.Enabled(1) {
 		k.notes = &note{
 			next:  k.notes,
 			where: where,
@@ -183,17 +183,10 @@ func (b *batch) flow(k hole, src *location) {
 		return
 	}
 	if dst.escapes && k.derefs < 0 { // dst = &src
-		if base.Flag.LowerM >= 2 || logopt.Enabled() {
-			pos := base.FmtPos(src.n.Pos())
-			if base.Flag.LowerM >= 2 {
-				fmt.Printf("%s: %v escapes to heap:\n", pos, src.n)
-			}
-			explanation := b.explainFlow(pos, dst, src, k.derefs, k.notes, []*logopt.LoggedOpt{})
-			if logopt.Enabled() {
-				var e_curfn *ir.Func // TODO(mdempsky): Fix.
-				logopt.LogOpt(src.n.Pos(), "escapes", "escape", ir.FuncName(e_curfn), fmt.Sprintf("%v escapes to heap", src.n), explanation)
-			}
-
+		if logopt.Enabled(1) {
+			explanation := b.explainFlow(dst, src, k.derefs, k.notes, []*logopt.LoggedOpt{})
+			var e_curfn *ir.Func // TODO(mdempsky): Fix.
+			logopt.LogOpt(src.n.Pos(), 1, "escapes", "escape", ir.FuncName(e_curfn), fmt.Sprintf("%v escapes to heap", src.n), explanation)
 		}
 		src.escapes = true
 		return

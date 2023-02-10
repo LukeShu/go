@@ -21,9 +21,7 @@ func (e *escape) stmt(n ir.Node) {
 		base.Pos = lno
 	}()
 
-	if base.Flag.LowerM > 2 {
-		fmt.Printf("%v:[%d] %v stmt: %v\n", base.FmtPos(base.Pos), e.loopDepth, e.curfn, n)
-	}
+	logopt.LogOpt(base.Pos, 2, "TODO", "escape", TODO, fmt.Sprintf("[%d] %v stmt: %v\n", e.loopDepth, e.curfn, n))
 
 	e.stmts(n.Init())
 

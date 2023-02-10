@@ -85,9 +85,8 @@ func Call(call *ir.CallExpr) {
 		// references to go:itab.T[int],iface and constructing a direct
 		// reference to .dict.T[int]).
 		if typ.HasShape() {
-			if base.Flag.LowerM != 0 {
-				base.WarnfAt(call.Pos(), "cannot devirtualize %v: shaped receiver %v", call, typ)
-			}
+			logopt.LogOpt(call.Pos(), 0, "cannotDevirtualizeCall", "devirtualize",
+				fmt.Sprintf("%v: shaped receiver %v", call, typ))
 			return
 		}
 
@@ -104,9 +103,8 @@ func Call(call *ir.CallExpr) {
 		// could instead set a flag so that walk skips the itab check. For
 		// now, punting is easy and safe.
 		if sel.X.Type().HasShape() {
-			if base.Flag.LowerM != 0 {
-				base.WarnfAt(call.Pos(), "cannot devirtualize %v: shaped interface %v", call, sel.X.Type())
-			}
+			logopt.LogOpt(call.Pos(), 0, "cannotDevirtualizeCall", "devirtualize",
+				fmt.Sprintf("%v: shaped interface %v", call, sel.X.Type()))
 			return
 		}
 	}
@@ -117,24 +115,21 @@ func Call(call *ir.CallExpr) {
 	switch x.Op() {
 	case ir.ODOTMETH:
 		x := x.(*ir.SelectorExpr)
-		if base.Flag.LowerM != 0 {
-			base.WarnfAt(call.Pos(), "devirtualizing %v to %v", sel, typ)
-		}
+		logopt.LogOpt(call.Pos(), 0, "canDevirtualizeCall", "devirtualize",
+			fmt.Sprintf("devirtualizing %v to %v", sel, typ))
 		call.SetOp(ir.OCALLMETH)
 		call.X = x
 	case ir.ODOTINTER:
 		// Promoted method from embedded interface-typed field (#42279).
 		x := x.(*ir.SelectorExpr)
-		if base.Flag.LowerM != 0 {
-			base.WarnfAt(call.Pos(), "partially devirtualizing %v to %v", sel, typ)
-		}
+		logopt.LogOpt(call.Pos(), 0, "canPartiallyDevirtualizeCall", "devirtualize",
+			fmt.Sprintf("partially devirtualizing %v to %v", sel, typ))
 		call.SetOp(ir.OCALLINTER)
 		call.X = x
 	default:
 		// TODO(mdempsky): Turn back into Fatalf after more testing.
-		if base.Flag.LowerM != 0 {
-			base.WarnfAt(call.Pos(), "failed to devirtualize %v (%v)", x, x.Op())
-		}
+		logopt.LogOpt(call.Pos(), 0, "cannotDevirtualizeCall", "devirtualize",
+			fmt.Sprintf("failed to devirtualize %v (%v)", x, x.Op()))
 		return
 	}
 

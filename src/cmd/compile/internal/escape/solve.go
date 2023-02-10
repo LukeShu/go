@@ -93,16 +93,11 @@ func (b *batch) walkOne(root *location, walkgen uint32, enqueue func(*location))
 			// that value flow for tagging the function
 			// later.
 			if l.isName(ir.PPARAM) {
-				if (logopt.Enabled() || base.Flag.LowerM >= 2) && !l.escapes {
-					if base.Flag.LowerM >= 2 {
-						fmt.Printf("%s: parameter %v leaks to %s with derefs=%d:\n", base.FmtPos(l.n.Pos()), l.n, b.explainLoc(root), derefs)
-					}
+				if logopt.Enabled(3) && !l.escapes {
 					explanation := b.explainPath(root, l)
-					if logopt.Enabled() {
-						var e_curfn *ir.Func // TODO(mdempsky): Fix.
-						logopt.LogOpt(l.n.Pos(), "leak", "escape", ir.FuncName(e_curfn),
-							fmt.Sprintf("parameter %v leaks to %s with derefs=%d", l.n, b.explainLoc(root), derefs), explanation)
-					}
+					var e_curfn *ir.Func // TODO(mdempsky): Fix.
+					logopt.LogOpt(l.n.Pos(), 3, "leak", "escape", ir.FuncName(e_curfn),
+						fmt.Sprintf("parameter %v leaks to %s with derefs=%d", l.n, b.explainLoc(root), derefs), explanation)
 				}
 				l.leakTo(root, derefs)
 			}
@@ -111,15 +106,10 @@ func (b *batch) walkOne(root *location, walkgen uint32, enqueue func(*location))
 			// outlives it, then l needs to be heap
 			// allocated.
 			if addressOf && !l.escapes {
-				if logopt.Enabled() || base.Flag.LowerM >= 2 {
-					if base.Flag.LowerM >= 2 {
-						fmt.Printf("%s: %v escapes to heap:\n", base.FmtPos(l.n.Pos()), l.n)
-					}
+				if logopt.Enabled(3) {
 					explanation := b.explainPath(root, l)
-					if logopt.Enabled() {
-						var e_curfn *ir.Func // TODO(mdempsky): Fix.
-						logopt.LogOpt(l.n.Pos(), "escape", "escape", ir.FuncName(e_curfn), fmt.Sprintf("%v escapes to heap", l.n), explanation)
-					}
+					var e_curfn *ir.Func // TODO(mdempsky): Fix.
+					logopt.LogOpt(l.n.Pos(), 3, "escape", "escape", ir.FuncName(e_curfn), fmt.Sprintf("%v escapes to heap", l.n), explanation)
 				}
 				l.escapes = true
 				enqueue(l)
@@ -146,14 +136,13 @@ func (b *batch) walkOne(root *location, walkgen uint32, enqueue func(*location))
 // explainPath prints an explanation of how src flows to the walk root.
 func (b *batch) explainPath(root, src *location) []*logopt.LoggedOpt {
 	visited := make(map[*location]bool)
-	pos := base.FmtPos(src.n.Pos())
 	var explanation []*logopt.LoggedOpt
 	for {
 		// Prevent infinite loop.
 		if visited[src] {
-			if base.Flag.LowerM >= 2 {
-				fmt.Printf("%s:   warning: truncated explanation due to assignment cycle; see golang.org/issue/35518\n", pos)
-			}
+			var e_curfn *ir.Func // TODO(mdempsky): Fix.
+			explanation = append(explanation, logopt.NewLoggedOpt(pos, "escflow", "escape", ir.FuncName(e_curfn),
+				"warning: truncated explanation due to assignment cycle; see golang.org/issue/35518"))
 			break
 		}
 		visited[src] = true
@@ -163,7 +152,7 @@ func (b *batch) explainPath(root, src *location) []*logopt.LoggedOpt {
 			base.Fatalf("path inconsistency: %v != %v", edge.src, src)
 		}
 
-		explanation = b.explainFlow(pos, dst, src, edge.derefs, edge.notes, explanation)
+		explanation = b.explainFlow(dst, src, edge.derefs, edge.notes, explanation)
 
 		if dst == root {
 			break
@@ -174,37 +163,26 @@ func (b *batch) explainPath(root, src *location) []*logopt.LoggedOpt {
 	return explanation
 }
 
-func (b *batch) explainFlow(pos string, dst, srcloc *location, derefs int, notes *note, explanation []*logopt.LoggedOpt) []*logopt.LoggedOpt {
+func (b *batch) explainFlow(dst, srcloc *location, derefs int, notes *note, explanation []*logopt.LoggedOpt) []*logopt.LoggedOpt {
 	ops := "&"
 	if derefs >= 0 {
 		ops = strings.Repeat("*", derefs)
 	}
-	print := base.Flag.LowerM >= 2
 
 	flow := fmt.Sprintf("   flow: %s = %s%v:", b.explainLoc(dst), ops, b.explainLoc(srcloc))
-	if print {
-		fmt.Printf("%s:%s\n", pos, flow)
+	var epos src.XPos
+	if notes != nil {
+		epos = notes.where.Pos()
+	} else if srcloc != nil && srcloc.n != nil {
+		epos = srcloc.n.Pos()
 	}
-	if logopt.Enabled() {
-		var epos src.XPos
-		if notes != nil {
-			epos = notes.where.Pos()
-		} else if srcloc != nil && srcloc.n != nil {
-			epos = srcloc.n.Pos()
-		}
-		var e_curfn *ir.Func // TODO(mdempsky): Fix.
-		explanation = append(explanation, logopt.NewLoggedOpt(epos, "escflow", "escape", ir.FuncName(e_curfn), flow))
-	}
+	var e_curfn *ir.Func // TODO(mdempsky): Fix.
+	explanation = append(explanation, logopt.NewLoggedOpt(epos, "escflow", "escape", ir.FuncName(e_curfn), flow))
 
 	for note := notes; note != nil; note = note.next {
-		if print {
-			fmt.Printf("%s:     from %v (%v) at %s\n", pos, note.where, note.why, base.FmtPos(note.where.Pos()))
-		}
-		if logopt.Enabled() {
-			var e_curfn *ir.Func // TODO(mdempsky): Fix.
-			explanation = append(explanation, logopt.NewLoggedOpt(note.where.Pos(), "escflow", "escape", ir.FuncName(e_curfn),
-				fmt.Sprintf("     from %v (%v)", note.where, note.why)))
-		}
+		var e_curfn *ir.Func // TODO(mdempsky): Fix.
+		explanation = append(explanation, logopt.NewLoggedOpt(note.where.Pos(), "escflow", "escape", ir.FuncName(e_curfn),
+			fmt.Sprintf("     from %v (%v)", note.where, note.why)))
 	}
 	return explanation
 }
