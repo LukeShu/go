@@ -164,7 +164,7 @@ func (b Bar) StillNoLeak() int { // ERROR "b does not escape$"
 }
 
 func goLeak(b *Bar) { // ERROR "leaking param: b$"
-	go b.NoLeak()
+	go b.NoLeak() // ERROR "func literal escapes to heap"
 }
 
 type Bar2 struct {
@@ -456,7 +456,7 @@ func foo64(m M) { // ERROR "leaking param: m$"
 }
 
 func foo64b(m M) { // ERROR "leaking param: m$"
-	defer m.M()
+	defer m.M() // ERROR "func literal does not escape"
 }
 
 type MV int
@@ -657,23 +657,23 @@ func foo76c() {
 }
 
 func foo76d() {
-	defer myprint(nil, 1, 2, 3) // ERROR "1 does not escape" "2 does not escape" "3 does not escape" "... argument does not escape$"
+	defer myprint(nil, 1, 2, 3) // ERROR "func literal does not escape" "1 does not escape" "2 does not escape" "3 does not escape" "... argument does not escape$"
 }
 
 func foo76e() {
-	defer myprint1(nil, 1, 2, 3) // ERROR "1 does not escape" "2 does not escape" "3 does not escape" "... argument does not escape$"
+	defer myprint1(nil, 1, 2, 3) // ERROR "func literal does not escape" "1 does not escape" "2 does not escape" "3 does not escape" "... argument does not escape$"
 }
 
 func foo76f() {
 	for {
 		// TODO: This one really only escapes its scope, but we don't distinguish yet.
-		defer myprint(nil, 1, 2, 3) // ERROR "... argument does not escape$" "1 escapes to heap$" "2 escapes to heap$" "3 escapes to heap$"
+		defer myprint(nil, 1, 2, 3) // ERROR "func literal escapes to heap" "... argument does not escape$" "1 escapes to heap$" "2 escapes to heap$" "3 escapes to heap$"
 	}
 }
 
 func foo76g() {
 	for {
-		defer myprint1(nil, 1, 2, 3) // ERROR "... argument does not escape$" "1 escapes to heap$" "2 escapes to heap$" "3 escapes to heap$"
+		defer myprint1(nil, 1, 2, 3) // ERROR "func literal escapes to heap" "... argument does not escape$" "1 escapes to heap$" "2 escapes to heap$" "3 escapes to heap$"
 	}
 }
 
@@ -739,13 +739,13 @@ func tee(p *int) (x, y *int) { return p, p } // ERROR "leaking param: p to resul
 func noop(x, y *int) {} // ERROR "x does not escape$" "y does not escape$"
 
 func foo82() {
-	var x, y, z int // ERROR "moved to heap: x$" "moved to heap: y$" "moved to heap: z$"
-	go noop(tee(&z))
-	go noop(&x, &y)
+	var x, y, z int  // ERROR "moved to heap: x$" "moved to heap: y$" "moved to heap: z$"
+	go noop(tee(&z)) // ERROR "func literal escapes to heap"
+	go noop(&x, &y)  // ERROR "func literal escapes to heap"
 	for {
-		var u, v, w int // ERROR "moved to heap: u$" "moved to heap: v$" "moved to heap: w$"
-		defer noop(tee(&u))
-		defer noop(&v, &w)
+		var u, v, w int     // ERROR "moved to heap: u$" "moved to heap: v$" "moved to heap: w$"
+		defer noop(tee(&u)) // ERROR "func literal escapes to heap"
+		defer noop(&v, &w)  // ERROR "func literal escapes to heap"
 	}
 }
 
@@ -1148,16 +1148,16 @@ L100:
 
 func foo121() {
 	for i := 0; i < 10; i++ {
-		defer myprint(nil, i) // ERROR "... argument does not escape$" "i escapes to heap$"
-		go myprint(nil, i)    // ERROR "... argument does not escape$" "i escapes to heap$"
+		defer myprint(nil, i) // ERROR "func literal escapes to heap" "... argument does not escape$" "i escapes to heap$"
+		go myprint(nil, i)    // ERROR "func literal escapes to heap" "... argument does not escape$" "i escapes to heap$"
 	}
 }
 
 // same as foo121 but check across import
 func foo121b() {
 	for i := 0; i < 10; i++ {
-		defer fmt.Printf("%d", i) // ERROR "... argument does not escape$" "i escapes to heap$"
-		go fmt.Printf("%d", i)    // ERROR "... argument does not escape$" "i escapes to heap$"
+		defer fmt.Printf("%d", i) // ERROR "func literal escapes to heap" "... argument does not escape$" "i escapes to heap$"
+		go fmt.Printf("%d", i)    // ERROR "func literal escapes to heap" "... argument does not escape$" "i escapes to heap$"
 	}
 }
 
